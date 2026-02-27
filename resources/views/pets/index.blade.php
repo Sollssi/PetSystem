@@ -4,27 +4,16 @@
     <div class="flex items-center justify-between mb-6">
         <div>
             <h2 class="text-2xl font-semibold">Mascotas registradas</h2>
-            <p class="text-sm text-slate-600">Gestiona el estado y los datos de tus mascotas.</p>
+            <p class="text-sm text-slate-600">Gestiona los datos de tus mascotas.</p>
         </div>
         <a class="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white" href="{{ route('pets.create') }}">Nueva mascota</a>
     </div>
-
-    @php
-        $badgeClasses = [
-            'active' => 'bg-emerald-100 text-emerald-700',
-            'inactive' => 'bg-amber-100 text-amber-700',
-            'medical' => 'bg-rose-100 text-rose-700',
-        ];
-    @endphp
 
     <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         @forelse ($pets as $pet)
             <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-semibold">{{ $pet->name }}</h3>
-                    <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $badgeClasses[$pet->status] ?? 'bg-slate-100 text-slate-600' }}">
-                        {{ ucfirst($pet->status) }}
-                    </span>
                 </div>
                 <p class="mt-2 text-sm text-slate-600">{{ $pet->species }} · {{ $pet->breed }}</p>
                 <p class="text-sm text-slate-600">Edad: {{ $pet->age }} años</p>

@@ -46,8 +46,8 @@ class AppointmentController extends Controller
             'breed' => 'required|string|max:120',
             'age' => 'required|integer|min:0|max:60',
             'appointment_date' => 'required|date',
-            'type' => 'required|in:consultation,vaccination,surgery,grooming,other',
-            'service' => 'required|in:' . implode(',', Appointment::serviceValues()),
+            'type' => 'required|in:' . implode(',', Appointment::typeValues()),
+            'service' => 'required|string',
             'description' => 'nullable|string|max:500',
             'notes' => 'nullable|string|max:500',
             'status' => 'nullable|in:' . implode(',', [
@@ -55,6 +55,12 @@ class AppointmentController extends Controller
                 AppoinmentStatus::Cancelled->value,
             ]),
         ]);
+
+        if (!Appointment::isValidServiceForType($validated['type'], $validated['service'])) {
+            throw ValidationException::withMessages([
+                'service' => 'El servicio seleccionado no corresponde a la categoría elegida.',
+            ]);
+        }
 
         $user = User::firstOrCreate(
             ['email' => $validated['client_email']],

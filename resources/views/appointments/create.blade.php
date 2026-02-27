@@ -21,16 +21,11 @@
                     <option value="vaccination" @selected(old('type') === 'vaccination')>Vacunación</option>
                     <option value="surgery" @selected(old('type') === 'surgery')>Cirugía</option>
                     <option value="grooming" @selected(old('type') === 'grooming')>Peluquería</option>
-                    <option value="other" @selected(old('type') === 'other')>Otro</option>
                 </select>
             </div>
             <div>
                 <label class="block text-sm text-slate-600 mb-1" for="service">Servicio</label>
-                <select name="service" id="service" class="w-full rounded-lg border border-slate-300 px-3 py-2" required>
-                    @foreach(\App\Models\Appointment::serviceOptions() as $value => $label)
-                        <option value="{{ $value }}" @selected(old('service', 'general_consultation') === $value)>{{ $label }}</option>
-                    @endforeach
-                </select>
+                <select name="service" id="service" class="w-full rounded-lg border border-slate-300 px-3 py-2" required></select>
             </div>
             <div>
                 <label class="block text-sm text-slate-600 mb-1" for="appointment_day">Día</label>
@@ -63,8 +58,32 @@
         const dayInput = document.getElementById('appointment_day');
         const hiddenDateInput = document.getElementById('appointment_date');
         const slotsWrapper = document.getElementById('slots-wrapper');
+        const typeSelect = document.getElementById('type');
+        const serviceSelect = document.getElementById('service');
+        const servicesByType = @json(\App\Models\Appointment::serviceOptionsByType());
+        const oldService = "{{ old('service', 'general_consultation') }}";
         const availabilityUrl = "{{ route('appointments.availability') }}";
         const preselectedDateTime = "{{ old('appointment_date') }}";
+
+        const fillServiceOptions = () => {
+            const selectedType = typeSelect.value;
+            const options = servicesByType[selectedType] || {};
+            const entries = Object.entries(options);
+
+            serviceSelect.innerHTML = '';
+            entries.forEach(([value, label]) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = label;
+                serviceSelect.appendChild(option);
+            });
+
+            if (entries.some(([value]) => value === oldService)) {
+                serviceSelect.value = oldService;
+            } else if (entries.length) {
+                serviceSelect.value = entries[0][0];
+            }
+        };
 
         const renderSlots = (data) => {
             const slots = data?.slots ?? [];
@@ -98,7 +117,6 @@
 
             slotsWrapper.innerHTML = `
                 <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">${buttons}</div>
-                <p class="mt-3 text-xs text-slate-500">Turnos ocupados del día: ${data.daily_booked}/${data.daily_limit}</p>
             `;
 
             slotsWrapper.querySelectorAll('.slot-btn').forEach(button => {
@@ -150,6 +168,9 @@
             loadAvailability();
         });
 
+        typeSelect.addEventListener('change', fillServiceOptions);
+
+        fillServiceOptions();
         loadAvailability();
     </script>
 @endsection

@@ -79,11 +79,17 @@ class AppointmentController extends Controller
         $validated = $request->validate([
             'pet_id' => 'required|exists:pets,id',
             'appointment_date' => 'required|date|after:now',
-            'type' => 'required|in:consultation,vaccination,surgery,grooming,other',
-            'service' => 'required|in:' . implode(',', Appointment::serviceValues()),
+            'type' => 'required|in:' . implode(',', Appointment::typeValues()),
+            'service' => 'required|string',
             'description' => 'nullable|string|max:500',
             'notes' => 'nullable|string|max:500',
         ]);
+
+        if (!Appointment::isValidServiceForType($validated['type'], $validated['service'])) {
+            throw ValidationException::withMessages([
+                'service' => 'El servicio seleccionado no corresponde a la categoría elegida.',
+            ]);
+        }
 
         $pet = Pet::findOrFail($validated['pet_id']);
         if ($pet->user_id !== Auth::id()) {
@@ -182,11 +188,17 @@ class AppointmentController extends Controller
 
         $validated = $request->validate([
             'appointment_date' => 'required|date|after:now',
-            'type' => 'required|in:consultation,vaccination,surgery,grooming,other',
-            'service' => 'required|in:' . implode(',', Appointment::serviceValues()),
+            'type' => 'required|in:' . implode(',', Appointment::typeValues()),
+            'service' => 'required|string',
             'description' => 'nullable|string|max:500',
             'notes' => 'nullable|string|max:500',
         ]);
+
+        if (!Appointment::isValidServiceForType($validated['type'], $validated['service'])) {
+            throw ValidationException::withMessages([
+                'service' => 'El servicio seleccionado no corresponde a la categoría elegida.',
+            ]);
+        }
 
         if (Appointment::hasScheduleConflict((int) $appointment->pet_id, $validated['appointment_date'], (int) $appointment->id)) {
             throw ValidationException::withMessages([

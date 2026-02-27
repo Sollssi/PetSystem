@@ -34,10 +34,6 @@
                         <dd class="text-slate-900">{{ $pet->age }} años</dd>
                     </div>
                     <div>
-                        <dt class="uppercase text-xs text-slate-400">Estado</dt>
-                        <dd class="text-slate-900">{{ ucfirst($pet->status) }}</dd>
-                    </div>
-                    <div>
                         <dt class="uppercase text-xs text-slate-400">Descripción</dt>
                         <dd class="text-slate-900">{{ $pet->description ?? 'Sin descripción.' }}</dd>
                     </div>

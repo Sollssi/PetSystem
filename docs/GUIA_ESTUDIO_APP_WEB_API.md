@@ -240,7 +240,7 @@ A continuación, las tablas relevantes del dominio y de infraestructura Laravel.
 - `user_id` (FK → `users.id`, cascade)
 - `pet_id` (FK → `pets.id`, cascade)
 - `appointment_date` (datetime)
-- `type` (enum: `consultation|vaccination|surgery|grooming|other`)
+- `type` (enum histórico en BD: `consultation|vaccination|surgery|grooming|other`)
 - `description` (nullable)
 - `status` (enum: `pending|confirmed|completed|cancelled`)
 - `notes` (nullable)
@@ -363,8 +363,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
 ```php
 $validated = $request->validate([
-    'appointment_date' => ['required', 'date', 'after:now'],
-    'type' => ['required', 'in:consultation,vaccination,surgery,grooming,other'],
+  'appointment_date' => ['required', 'date', 'after:now'],
+  'type' => ['required', 'in:consultation,vaccination,surgery,grooming'],
 ]);
 ```
 
@@ -1053,3 +1053,120 @@ Si devuelve `0`, no hay duplicados.
 8. Ejecutar `migrate:fresh --seed` y validar.
 
 Ese orden minimiza regresiones y permite testear cada capa por separado.
+
+---
+
+## 21) Cambio reciente: servicio dependiente de categoría (sin opción “Otro”)
+
+## Objetivo
+- Simplificar UX de turnos.
+- Evitar combinaciones inconsistentes (ej. categoría cirugía con servicio de peluquería).
+- Reducir opciones abiertas: máximo 3 servicios por categoría, excepto consulta (general).
+
+## Qué se cambió y dónde
+
+### Modelo de dominio
+- Archivo: `app/Models/Appointment.php`
+- Se reemplazó catálogo plano por mapa por categoría:
+  - `consultation` → 1 servicio (`general_consultation`)
+  - `vaccination` → 3 servicios
+  - `surgery` → 3 servicios
+  - `grooming` → 3 servicios
+- Helpers agregados/reutilizados:
+  - `typeValues()`
+  - `serviceOptionsByType()`
+  - `serviceValues($type)`
+  - `isValidServiceForType($type, $service)`
+
+### Validación Web/API/Admin
+- Archivos:
+  - `app/Http/Controllers/AppointmentController.php`
+  - `app/Http/Controllers/Api/AppointmentController.php`
+  - `app/Http/Controllers/Admin/AppointmentController.php`
+- Regla aplicada: `service` debe pertenecer al `type` seleccionado.
+- Se eliminó “other” de validaciones aceptadas.
+
+### Formularios
+- Archivos:
+  - `resources/views/appointments/create.blade.php`
+  - `resources/views/appointments/edit.blade.php`
+  - `resources/views/admin/appointments/create.blade.php`
+- El select de servicio ahora se llena dinámicamente al cambiar categoría.
+- Ya no se muestra categoría “Otro”.
+
+### Seeders
+- Archivo: `database/seeders/AppointmentSeeder.php`
+- Servicios de ejemplo alineados a la matriz nueva por categoría.
+
+## Nota de arquitectura
+La base conserva enum histórico con `other` por compatibilidad de migraciones antiguas, pero la capa de aplicación ya no permite elegirlo.
+
+---
+
+## 22) Flujo de atributos (cómo viajan los datos en Laravel)
+
+Ejemplo real: creación de turno web.
+
+1. **Frontend (Blade)** envía `pet_id`, `type`, `service`, `appointment_date`, `description`, `notes`.
+2. **Request** llega a `AppointmentController@store`.
+3. **Validación** (`$request->validate`) filtra estructura y formato.
+4. **Reglas de negocio** verifican:
+   - ownership de mascota,
+   - conflicto por mascota+horario,
+   - cupo del slot y cupo diario.
+5. **Persistencia**: `Appointment::create([...])` usando `$fillable` del modelo.
+6. **Casting**: `appointment_date` se maneja como `datetime` por `$casts`.
+7. **Salida**:
+   - web: redirect + flash message,
+   - API: JSON + HTTP status.
+
+Resumen mental para defensa:
+`HTML/JSON → Request → Validate → Business Rules → Model(Create/Update) → DB → Response`.
+
+---
+
+## 23) Contraseñas con hash: dónde está y cómo funciona
+
+## Dónde se aplica en este proyecto
+- Registro de usuario: `app/Http/Controllers/RegisterController.php`
+  - `Hash::make($validated['password'])`
+- Alta automática de cliente desde admin: `app/Http/Controllers/Admin/AppointmentController.php`
+  - `Hash::make(Str::random(32))`
+
+## Qué hace `Hash::make`
+- No cifra reversible: genera un **hash unidireccional** (por defecto bcrypt/argon según config).
+- Incluye `salt` y costo para dificultar ataques por fuerza bruta.
+- Nunca se guarda texto plano.
+
+## Cómo se valida al iniciar sesión
+- En login se usa `Auth::attempt([...])`.
+- Laravel toma el password recibido y lo compara contra el hash guardado con `Hash::check` internamente.
+
+## Por qué es importante
+- Si se filtra la BD, no se exponen contraseñas legibles.
+- Cumple prácticas estándar de seguridad en aplicaciones web.
+
+## Sintaxis clave
+
+```php
+use Illuminate\Support\Facades\Hash;
+
+$hashed = Hash::make($request->password);
+```
+
+```php
+if (Hash::check($plainPassword, $user->password)) {
+    // contraseña válida
+}
+```
+
+---
+
+## 24) Checklist técnico para explicar al profesor (resumen corto)
+
+1. Dominio central en `Appointment` para no duplicar reglas.
+2. Web y API comparten modelo y BD, cambian solo transporte (HTML vs JSON).
+3. Servicios dependen de categoría para evitar inconsistencias.
+4. Agenda usa capacidad global (todos los usuarios) por franja y por día.
+5. Seguridad de credenciales con hash (nunca plaintext).
+6. Seeders alineados al negocio actual para demo consistente.

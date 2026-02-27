@@ -29,11 +29,21 @@ class AppointmentController extends Controller
         $validated = $request->validate([
             'pet_id' => ['required', 'exists:pets,id'],
             'appointment_date' => ['required', 'date', 'after:now'],
-            'type' => ['required', 'in:consultation,vaccination,surgery,grooming,other'],
-            'service' => ['nullable', 'in:' . implode(',', Appointment::serviceValues())],
+            'type' => ['required', 'in:' . implode(',', Appointment::typeValues())],
+            'service' => ['nullable', 'string'],
             'description' => ['nullable', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
+
+        if (($validated['type'] ?? null) === 'consultation' && empty($validated['service'])) {
+            $validated['service'] = 'general_consultation';
+        }
+
+        if (!Appointment::isValidServiceForType($validated['type'], $validated['service'] ?? '')) {
+            throw ValidationException::withMessages([
+                'service' => 'El servicio seleccionado no corresponde a la categoría elegida.',
+            ]);
+        }
 
         $pet = Pet::findOrFail($validated['pet_id']);
         if ($pet->user_id !== $request->user()->id) {
@@ -86,12 +96,22 @@ class AppointmentController extends Controller
 
         $validated = $request->validate([
             'appointment_date' => ['required', 'date', 'after:now'],
-            'type' => ['required', 'in:consultation,vaccination,surgery,grooming,other'],
-            'service' => ['sometimes', 'in:' . implode(',', Appointment::serviceValues())],
+            'type' => ['required', 'in:' . implode(',', Appointment::typeValues())],
+            'service' => ['sometimes', 'string'],
             'description' => ['nullable', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:500'],
             'status' => ['sometimes', 'in:' . implode(',', AppoinmentStatus::values())],
         ]);
+
+        if (!isset($validated['service']) && $validated['type'] === 'consultation') {
+            $validated['service'] = 'general_consultation';
+        }
+
+        if (!Appointment::isValidServiceForType($validated['type'], $validated['service'] ?? '')) {
+            throw ValidationException::withMessages([
+                'service' => 'El servicio seleccionado no corresponde a la categoría elegida.',
+            ]);
+        }
 
         if (Appointment::hasScheduleConflict((int) $appointment->pet_id, $validated['appointment_date'], (int) $appointment->id)) {
             throw ValidationException::withMessages([

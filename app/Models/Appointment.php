@@ -13,25 +13,27 @@ class Appointment extends Model
         'vaccination' => 'Vacunación',
         'surgery' => 'Cirugía',
         'grooming' => 'Peluquería',
-        'other' => 'Otro',
     ];
 
-    public const SERVICE_OPTIONS = [
-        'general_consultation' => 'Consulta general',
-        'laboratory' => 'Laboratorio',
-        'imaging_diagnosis' => 'Diagnóstico por imágenes',
-        'cardiology_studies' => 'Estudios cardiológicos',
-        'ecography' => 'Ecografía',
-        'electrocardiography' => 'Electrocardiografía',
-        'dermatology' => 'Dermatología',
-        'neurology' => 'Neurología',
-        'traumatology' => 'Traumatología',
-        'endocrinology' => 'Endocrinología',
-        'oncology' => 'Oncología',
-        'hematology' => 'Hematología',
-        'endoscopy' => 'Endoscopía',
-        'non_conventional_pets' => 'Mascotas no convencionales',
-        'pharmacy_products' => 'Farmacia y productos veterinarios',
+    public const SERVICES_BY_TYPE = [
+        'consultation' => [
+            'general_consultation' => 'Consulta general',
+        ],
+        'vaccination' => [
+            'annual_vaccination' => 'Vacunación anual',
+            'puppy_kitten_scheme' => 'Plan cachorro/gatito',
+            'antirabies_vaccination' => 'Vacuna antirrábica',
+        ],
+        'surgery' => [
+            'sterilization' => 'Esterilización',
+            'soft_tissue_surgery' => 'Cirugía de tejidos blandos',
+            'traumatology_surgery' => 'Cirugía traumatológica',
+        ],
+        'grooming' => [
+            'bath_and_brushing' => 'Baño y cepillado',
+            'haircut' => 'Corte de pelo',
+            'nail_and_ear_care' => 'Uñas y limpieza de oídos',
+        ],
     ];
 
     protected $fillable = [
@@ -86,14 +88,39 @@ class Appointment extends Model
         return $this->belongsTo(Pet::class);
     }
 
-    public static function serviceOptions(): array
+    public static function typeValues(): array
     {
-        return self::SERVICE_OPTIONS;
+        return array_keys(self::TYPE_LABELS);
     }
 
-    public static function serviceValues(): array
+    public static function serviceOptionsByType(?string $type = null): array
     {
-        return array_keys(self::SERVICE_OPTIONS);
+        if ($type === null) {
+            return self::SERVICES_BY_TYPE;
+        }
+
+        return self::SERVICES_BY_TYPE[$type] ?? [];
+    }
+
+    public static function serviceValues(?string $type = null): array
+    {
+        return array_keys(self::serviceOptions($type));
+    }
+
+    public static function serviceOptions(?string $type = null): array
+    {
+        if ($type === null) {
+            return collect(self::SERVICES_BY_TYPE)
+                ->flatMap(fn ($options) => $options)
+                ->all();
+        }
+
+        return self::SERVICES_BY_TYPE[$type] ?? [];
+    }
+
+    public static function isValidServiceForType(string $type, string $service): bool
+    {
+        return array_key_exists($service, self::serviceOptions($type));
     }
 
     public static function hasScheduleConflict(int $petId, mixed $appointmentDate, ?int $ignoreAppointmentId = null): bool
@@ -190,6 +217,8 @@ class Appointment extends Model
 
     public function serviceLabel(): string
     {
-        return self::SERVICE_OPTIONS[$this->service] ?? 'Servicio general';
+        return self::serviceOptions($this->type)[$this->service]
+            ?? self::serviceOptions()[$this->service]
+            ?? 'Servicio general';
     }
 }
