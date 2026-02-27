@@ -53,17 +53,14 @@ php artisan serve
 
 Accede a: http://localhost:8000
 
-## 🔐 Credenciales de Prueba
+## 🔐 Acceso y seguridad
 
-Después de ejecutar los seeders:
+Las cuentas iniciales se generan desde las variables de entorno definidas en `.env`:
 
-**Usuario Regular:**
-- Email: user@email.com
-- Contraseña: password
+- `ADMIN_FIRST_NAME`, `ADMIN_LAST_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`
+- `USER_FIRST_NAME`, `USER_LAST_NAME`, `USER_EMAIL`, `USER_PASSWORD`
 
-**Administrador:**
-- Email: admin@email.com
-- Contraseña: password
+Recomendación: usar credenciales locales fuertes y no publicar valores reales en documentación ni repositorios.
 
 ## 🧪 Testing
 
