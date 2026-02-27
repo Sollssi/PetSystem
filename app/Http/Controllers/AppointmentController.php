@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AppoinmentStatus;
 use App\Mail\AppointmentCreatedMail;
 use App\Models\Appointment;
 use App\Models\Pet;
@@ -69,7 +70,7 @@ class AppointmentController extends Controller
             'appointment_date' => $validated['appointment_date'],
             'type' => $validated['type'],
             'description' => $validated['description'] ?? null,
-            'status' => 'pending',
+            'status' => AppoinmentStatus::Pending->value,
             'notes' => $validated['notes'] ?? null,
         ]);
 
@@ -104,7 +105,7 @@ class AppointmentController extends Controller
             abort(403, 'No autorizado');
         }
 
-        if ($appointment->status !== 'pending') {
+        if ($appointment->status !== AppoinmentStatus::Pending->value) {
             return redirect()->back()->with('error', 'Solo puedes editar citas pendientes');
         }
 
@@ -130,7 +131,7 @@ class AppointmentController extends Controller
             abort(403, 'No autorizado');
         }
 
-        if ($appointment->status !== 'pending') {
+        if ($appointment->status !== AppoinmentStatus::Pending->value) {
             return redirect()
                 ->route('appointments.show', $appointment)
                 ->with('error', 'Solo puedes editar citas pendientes.');
@@ -159,13 +160,13 @@ class AppointmentController extends Controller
             abort(403, 'No autorizado');
         }
 
-        if (in_array($appointment->status, ['completed', 'cancelled'])) {
+        if (in_array($appointment->status, [AppoinmentStatus::Completed->value, AppoinmentStatus::Cancelled->value], true)) {
             return redirect()
                 ->route('appointments.show', $appointment)
                 ->with('error', 'No puedes cancelar esta cita.');
         }
 
-        $appointment->update(['status' => 'cancelled']);
+        $appointment->update(['status' => AppoinmentStatus::Cancelled->value]);
 
         return redirect()
             ->route('appointments.show', $appointment)

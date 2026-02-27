@@ -11,10 +11,9 @@
 
     @php
         $badgeClasses = [
-            'Available' => 'bg-emerald-100 text-emerald-700',
-            'In Process' => 'bg-amber-100 text-amber-700',
-            'Adopted' => 'bg-sky-100 text-sky-700',
-            'Medical Treatment' => 'bg-rose-100 text-rose-700',
+            'active' => 'bg-emerald-100 text-emerald-700',
+            'inactive' => 'bg-amber-100 text-amber-700',
+            'medical' => 'bg-rose-100 text-rose-700',
         ];
     @endphp
 
@@ -23,8 +22,8 @@
             <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-semibold">{{ $pet->name }}</h3>
-                    <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $badgeClasses[$pet->status->value] ?? 'bg-slate-100 text-slate-600' }}">
-                        {{ $pet->status->value }}
+                    <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $badgeClasses[$pet->status] ?? 'bg-slate-100 text-slate-600' }}">
+                        {{ ucfirst($pet->status) }}
                     </span>
                 </div>
                 <p class="mt-2 text-sm text-slate-600">{{ $pet->species }} · {{ $pet->breed }}</p>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\AppoinmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Pet;
@@ -39,7 +40,7 @@ class AppointmentController extends Controller
         $appointment = Appointment::create([
             ...$validated,
             'user_id' => $request->user()->id,
-            'status' => 'pending',
+            'status' => AppoinmentStatus::Pending->value,
         ]);
 
         return response()->json([
@@ -70,7 +71,7 @@ class AppointmentController extends Controller
             'type' => ['required', 'in:consultation,vaccination,surgery,grooming,other'],
             'description' => ['nullable', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:500'],
-            'status' => ['sometimes', 'in:pending,confirmed,completed,cancelled'],
+            'status' => ['sometimes', 'in:' . implode(',', AppoinmentStatus::values())],
         ]);
 
         $appointment->update($validated);

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\PetStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,7 +22,6 @@ class Pet extends Model
 
     protected $casts = [
         'age' => 'integer',
-        'status' => PetStatus::class,
     ];
 
     public function user(): BelongsTo

@@ -31,7 +31,7 @@ Ambas capas comparten:
 - `Http/Controllers/` → controladores web y de API
 - `Models/` → entidades de dominio con relaciones
 - `Http/Requests/` → validación desacoplada para mascotas
-- `Enums/PetStatus.php` → enum tipado de estado de mascota
+- `Enums/AppoinmentStatus.php` → enum tipado para estados de cita (`pending`, `confirmed`, `completed`, `cancelled`)
 - `Policies/PetPolicy.php` → autorización por dueño de mascota
 - `Jobs/CleanTemporaryUploadsJob.php` → limpieza de temporales por cola
 - `Mail/AppointmentCreatedMail.php` → email de confirmación de turno
@@ -231,7 +231,7 @@ A continuación, las tablas relevantes del dominio y de infraestructura Laravel.
 - `breed`
 - `age` (unsigned int)
 - `description` (nullable)
-- `status` (string; default enum `PetStatus::Available`)
+- `status` (string; default `active`)
 - `user_id` (FK → `users.id`, `cascadeOnDelete`)
 - `created_at`, `updated_at`
 
@@ -395,7 +395,7 @@ if ($pet->user_id !== $request->user()->id) {
 
 ```php
 protected $casts = [
-    'status' => PetStatus::class,
+  'appointment_date' => 'datetime',
 ];
 ```
 
@@ -473,7 +473,7 @@ Conclusión técnica: no hay un BFF intermedio ni un front SPA consumiendo API d
 - **Sanctum**: autenticación API simple y segura para tokens personales.
 - **Spatie Permission**: roles/permisos robustos sin reinventar RBAC.
 - **Form Requests en mascotas**: validación limpia y reutilizable (`StorePetRequest`, `UpdatePetRequest`).
-- **Enum `PetStatus`**: evita strings mágicos y reduce errores de estado.
+- **Enum `AppoinmentStatus`**: centraliza estados de cita y evita strings mágicos repetidos en controladores/modelo.
 - **Jobs + scheduler**: tareas de mantenimiento (limpieza temporales) fuera del request web.
 - **Seeders realistas**: facilitan demo y evaluación académica con dataset funcional.
 - **Mails transaccionales**: confirmación de turnos y flujos de cuenta (verificación/reset).
@@ -512,6 +512,88 @@ Conclusión técnica: no hay un BFF intermedio ni un front SPA consumiendo API d
 7. Login web con usuario seed
 8. Probar `/endpoints`
 9. Probar login API y llamadas con Bearer token
+
+---
+
+## 17) Funcionalidades por entidad (modelo) y por sistema
+
+## Sistema general (qué hace completo)
+- Gestiona cuentas de usuario con autenticación web y API.
+- Permite registrar mascotas y mantener su perfil clínico básico.
+- Permite crear y administrar turnos veterinarios.
+- Mantiene carnet digital de vacunación por mascota.
+- Aplica reglas de autorización por dueño y por rol admin.
+- Emite correos transaccionales (confirmación de turno, verificación email, reset de password).
+
+## `User` (usuario)
+- Representa personas que usan el sistema (cliente o admin).
+- Tiene roles/permisos con Spatie (`HasRoles`).
+- Se autentica por sesión (web) y token (Sanctum API).
+- Relaciona sus mascotas y sus turnos.
+
+## `Pet` (mascota)
+- Guarda identidad de la mascota: nombre, especie, raza, edad, descripción.
+- Tiene un estado simple (`status` string, por defecto `active`).
+- Pertenece a un usuario.
+- Agrupa su historial de turnos y de vacunación.
+
+## `Appointment` (cita)
+- Registra fecha/hora, tipo, descripción, notas y estado.
+- Estado tipado por enum `AppoinmentStatus` (`pending`, `confirmed`, `completed`, `cancelled`).
+- Aplica regla automática: citas vencidas pendientes/confirmadas pasan a `completed`.
+- Se vincula a usuario y mascota.
+
+## `VaccinationRecord` (vacunación)
+- Guarda vacuna aplicada, fecha, próxima dosis, veterinario y notas.
+- Permite detectar próximas a vencer y vencidas.
+- Se vincula a una mascota.
+
+## Flujo integrado (usuario + backend)
+1. Usuario se registra/inicia sesión.
+2. Backend autentica (session o token) y autoriza acceso a recursos propios.
+3. Usuario registra mascota.
+4. Usuario crea cita para su mascota.
+5. Backend valida ownership, persiste cita y dispara email de confirmación.
+6. Admin visualiza turnos, confirma/cancela solicitudes.
+7. Usuario/admin gestiona vacunación de cada mascota.
+8. Dashboard muestra métricas y recordatorios calculados por backend.
+
+---
+
+## 18) Cómo se conectó y personalizó el email de confirmación (Gmail)
+
+## Arquitectura del envío
+1. En un controlador se crea la cita.
+2. Luego se llama a `Mail::to(...)->send(new AppointmentCreatedMail($appointment))`.
+3. `AppointmentCreatedMail` define asunto y la vista Blade del correo.
+4. La plantilla `resources/views/emails/appointment-created.blade.php` renderiza contenido dinámico (mascota, fecha, estado, descripción).
+
+## Archivos clave
+- `app/Http/Controllers/AppointmentController.php` (web)
+- `app/Http/Controllers/Admin/AppointmentController.php` (admin)
+- `app/Mail/AppointmentCreatedMail.php`
+- `resources/views/emails/appointment-created.blade.php`
+
+## Configuración para Gmail (SMTP)
+En `.env`:
+- `MAIL_MAILER=smtp`
+- `MAIL_HOST=smtp.gmail.com`
+- `MAIL_PORT=587`
+- `MAIL_USERNAME=tu_correo@gmail.com`
+- `MAIL_PASSWORD=tu_app_password` (contraseña de aplicación de Google, no la contraseña normal)
+- `MAIL_ENCRYPTION=tls`
+- `MAIL_FROM_ADDRESS=tu_correo@gmail.com`
+- `MAIL_FROM_NAME="VetClinic"`
+
+## Personalización del mensaje
+- **Asunto**: se define en `AppointmentCreatedMail::envelope()`.
+- **Cuerpo HTML**: se define en la vista Blade del correo.
+- **Datos dinámicos**: se pasan con el objeto `$appointment` a la vista.
+
+## Recomendación de operación
+- Si usas cola de correos (`ShouldQueue` en notificaciones/mails), ejecuta:
+  - `php artisan queue:work --queue=default,emails`
+- En local, para inspección visual rápida, puedes usar Mailtrap/Mailpit; para prueba real, Gmail SMTP.
 
 ---
 

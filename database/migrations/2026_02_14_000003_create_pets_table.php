@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\PetStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -16,7 +15,7 @@ return new class extends Migration
             $table->string('breed');
             $table->unsignedInteger('age');
             $table->text('description')->nullable();
-            $table->string('status')->default(PetStatus::Available->value);
+            $table->string('status')->default('active');
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
         });

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\PetStatus;
 use App\Http\Requests\StorePetRequest;
 use App\Http\Requests\UpdatePetRequest;
 use App\Models\Pet;
@@ -31,7 +30,7 @@ class PetController extends Controller
     public function store(StorePetRequest $request): RedirectResponse
     {
         $petData = $request->validated();
-        $petData['status'] = PetStatus::Available;
+        $petData['status'] = 'active';
 
         $pet = $request->user()->pets()->create($petData);
 

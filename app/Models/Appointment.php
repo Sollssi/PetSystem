@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AppoinmentStatus;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
@@ -24,9 +25,9 @@ class Appointment extends Model
     public static function autoCompleteDueAppointments(): void
     {
         static::query()
-            ->whereIn('status', ['pending', 'confirmed'])
+            ->whereIn('status', [AppoinmentStatus::Pending->value, AppoinmentStatus::Confirmed->value])
             ->where('appointment_date', '<=', Carbon::now())
-            ->update(['status' => 'completed']);
+            ->update(['status' => AppoinmentStatus::Completed->value]);
     }
 
     public function user()

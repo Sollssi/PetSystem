@@ -2,12 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\PetStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Pet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class PetController extends Controller
 {
@@ -26,8 +24,12 @@ class PetController extends Controller
             'breed' => ['required', 'string', 'max:120'],
             'age' => ['required', 'integer', 'min:0', 'max:40'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'status' => ['required', Rule::enum(PetStatus::class)],
+            'status' => ['nullable', 'string', 'max:50'],
         ]);
+
+        if (!array_key_exists('status', $validated) || $validated['status'] === null) {
+            $validated['status'] = 'active';
+        }
 
         $pet = $request->user()->pets()->create($validated);
 
@@ -58,8 +60,12 @@ class PetController extends Controller
             'breed' => ['required', 'string', 'max:120'],
             'age' => ['required', 'integer', 'min:0', 'max:40'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'status' => ['required', Rule::enum(PetStatus::class)],
+            'status' => ['nullable', 'string', 'max:50'],
         ]);
+
+        if (!array_key_exists('status', $validated) || $validated['status'] === null) {
+            $validated['status'] = $pet->status;
+        }
 
         $pet->update($validated);
 

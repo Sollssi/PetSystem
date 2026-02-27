@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AppoinmentStatus;
 use App\Http\Controllers\Controller;
 use App\Mail\AppointmentCreatedMail;
 use App\Models\Appointment;
 use App\Models\Pet;
 use App\Models\User;
-use App\Enums\PetStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -47,7 +47,11 @@ class AppointmentController extends Controller
             'type' => 'required|in:consultation,vaccination,surgery,grooming,other',
             'description' => 'nullable|string|max:500',
             'notes' => 'nullable|string|max:500',
-            'status' => 'required|in:pending,confirmed,cancelled',
+            'status' => 'required|in:' . implode(',', [
+                AppoinmentStatus::Pending->value,
+                AppoinmentStatus::Confirmed->value,
+                AppoinmentStatus::Cancelled->value,
+            ]),
         ]);
 
         $user = User::firstOrCreate(
@@ -69,7 +73,7 @@ class AppointmentController extends Controller
             'species' => $validated['species'],
             'breed' => $validated['breed'],
             'age' => (int) $validated['age'],
-            'status' => PetStatus::Available,
+            'status' => 'active',
         ]);
 
         $appointment = Appointment::create([
@@ -96,7 +100,11 @@ class AppointmentController extends Controller
         $appointment->refresh();
 
         $validated = $request->validate([
-            'status' => 'required|in:pending,confirmed,cancelled',
+            'status' => 'required|in:' . implode(',', [
+                AppoinmentStatus::Pending->value,
+                AppoinmentStatus::Confirmed->value,
+                AppoinmentStatus::Cancelled->value,
+            ]),
         ]);
 
         $appointment->update([

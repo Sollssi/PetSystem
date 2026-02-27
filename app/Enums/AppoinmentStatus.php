@@ -4,8 +4,13 @@ namespace App\Enums;
 
 enum AppoinmentStatus: string
 {
-    case PENDIENTE = 'Pendiente';
-    case CONFIRMADO = 'Confirmado';
-    case COMPLETADO = 'Completado';
-    case CANCELADO = 'Cancelado';
+    case Pending = 'pending';
+    case Confirmed = 'confirmed';
+    case Completed = 'completed';
+    case Cancelled = 'cancelled';
+
+    public static function values(): array
+    {
+        return array_map(static fn(self $status): string => $status->value, self::cases());
+    }
 }
