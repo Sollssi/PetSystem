@@ -6,8 +6,10 @@ use App\Enums\AppoinmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Pet;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
 {
@@ -28,6 +30,7 @@ class AppointmentController extends Controller
             'pet_id' => ['required', 'exists:pets,id'],
             'appointment_date' => ['required', 'date', 'after:now'],
             'type' => ['required', 'in:consultation,vaccination,surgery,grooming,other'],
+            'service' => ['nullable', 'in:' . implode(',', Appointment::serviceValues())],
             'description' => ['nullable', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
@@ -37,10 +40,25 @@ class AppointmentController extends Controller
             abort(403, 'Esta mascota no te pertenece');
         }
 
+        if (Appointment::hasScheduleConflict((int) $validated['pet_id'], $validated['appointment_date'])) {
+            throw ValidationException::withMessages([
+                'appointment_date' => 'Esta mascota ya tiene un turno agendado en ese mismo horario. Elegí otro día u hora.',
+            ]);
+        }
+
+        $appointmentDate = Carbon::parse($validated['appointment_date'])->setSecond(0)->format('Y-m-d H:i:s');
+        if (!Appointment::hasCapacityForDateTime($appointmentDate)) {
+            throw ValidationException::withMessages([
+                'appointment_date' => 'Ese horario ya no está disponible. Elegí otro turno.',
+            ]);
+        }
+
         $appointment = Appointment::create([
             ...$validated,
+            'appointment_date' => $appointmentDate,
             'user_id' => $request->user()->id,
-            'status' => AppoinmentStatus::Pending->value,
+            'status' => AppoinmentStatus::Confirmed->value,
+            'service' => $validated['service'] ?? 'general_consultation',
         ]);
 
         return response()->json([
@@ -69,10 +87,26 @@ class AppointmentController extends Controller
         $validated = $request->validate([
             'appointment_date' => ['required', 'date', 'after:now'],
             'type' => ['required', 'in:consultation,vaccination,surgery,grooming,other'],
+            'service' => ['sometimes', 'in:' . implode(',', Appointment::serviceValues())],
             'description' => ['nullable', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:500'],
             'status' => ['sometimes', 'in:' . implode(',', AppoinmentStatus::values())],
         ]);
+
+        if (Appointment::hasScheduleConflict((int) $appointment->pet_id, $validated['appointment_date'], (int) $appointment->id)) {
+            throw ValidationException::withMessages([
+                'appointment_date' => 'Esta mascota ya tiene un turno agendado en ese mismo horario. Elegí otro día u hora.',
+            ]);
+        }
+
+        $appointmentDate = Carbon::parse($validated['appointment_date'])->setSecond(0)->format('Y-m-d H:i:s');
+        if (!Appointment::hasCapacityForDateTime($appointmentDate, (int) $appointment->id)) {
+            throw ValidationException::withMessages([
+                'appointment_date' => 'Ese horario ya no está disponible. Elegí otro turno.',
+            ]);
+        }
+
+        $validated['appointment_date'] = $appointmentDate;
 
         $appointment->update($validated);
 

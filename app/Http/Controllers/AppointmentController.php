@@ -6,9 +6,12 @@ use App\Enums\AppoinmentStatus;
 use App\Mail\AppointmentCreatedMail;
 use App\Models\Appointment;
 use App\Models\Pet;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
 {
@@ -25,6 +28,8 @@ class AppointmentController extends Controller
 
         $appointments = $user->appointments()
             ->with(['pet'])
+            ->whereIn('status', Appointment::activeStatuses())
+            ->where('appointment_date', '>=', now())
             ->orderBy('appointment_date', 'asc')
             ->paginate(10);
 
@@ -46,6 +51,26 @@ class AppointmentController extends Controller
 
         return view('appointments.create', [
             'pets' => $pets,
+            'schedulingRules' => Appointment::schedulingRules(),
+        ]);
+    }
+
+    public function availability(Request $request)
+    {
+        $validated = $request->validate([
+            'date' => 'required|date',
+        ]);
+
+        $date = Carbon::parse($validated['date']);
+        if ($date->lt(Carbon::today())) {
+            return response()->json([
+                'message' => 'La fecha debe ser hoy o posterior.',
+                'data' => null,
+            ], 422);
+        }
+
+        return response()->json([
+            'data' => Appointment::availableSlotsForDate($date),
         ]);
     }
 
@@ -55,24 +80,42 @@ class AppointmentController extends Controller
             'pet_id' => 'required|exists:pets,id',
             'appointment_date' => 'required|date|after:now',
             'type' => 'required|in:consultation,vaccination,surgery,grooming,other',
+            'service' => 'required|in:' . implode(',', Appointment::serviceValues()),
             'description' => 'nullable|string|max:500',
             'notes' => 'nullable|string|max:500',
         ]);
 
-        $pet = Pet::find($validated['pet_id']);
+        $pet = Pet::findOrFail($validated['pet_id']);
         if ($pet->user_id !== Auth::id()) {
             abort(403, 'Esta mascota no te pertenece');
         }
 
-        $appointment = Appointment::create([
-            'user_id' => Auth::id(),
-            'pet_id' => $validated['pet_id'],
-            'appointment_date' => $validated['appointment_date'],
-            'type' => $validated['type'],
-            'description' => $validated['description'] ?? null,
-            'status' => AppoinmentStatus::Pending->value,
-            'notes' => $validated['notes'] ?? null,
-        ]);
+        if (Appointment::hasScheduleConflict((int) $validated['pet_id'], $validated['appointment_date'])) {
+            throw ValidationException::withMessages([
+                'appointment_date' => 'Esta mascota ya tiene un turno agendado en ese mismo horario. Elegí otro día u hora.',
+            ]);
+        }
+
+        $appointment = DB::transaction(function () use ($validated) {
+            $appointmentDate = Carbon::parse($validated['appointment_date'])->setSecond(0)->format('Y-m-d H:i:s');
+
+            if (!Appointment::hasCapacityForDateTime($appointmentDate)) {
+                throw ValidationException::withMessages([
+                    'appointment_date' => 'Ese horario ya no está disponible. Elegí otro turno.',
+                ]);
+            }
+
+            return Appointment::create([
+                'user_id' => Auth::id(),
+                'pet_id' => $validated['pet_id'],
+                'appointment_date' => $appointmentDate,
+                'type' => $validated['type'],
+                'service' => $validated['service'],
+                'description' => $validated['description'] ?? null,
+                'status' => AppoinmentStatus::Confirmed->value,
+                'notes' => $validated['notes'] ?? null,
+            ]);
+        });
 
         $appointment->load(['user', 'pet']);
         Mail::to($appointment->user->email)->send(new AppointmentCreatedMail($appointment));
@@ -105,8 +148,8 @@ class AppointmentController extends Controller
             abort(403, 'No autorizado');
         }
 
-        if ($appointment->status !== AppoinmentStatus::Pending->value) {
-            return redirect()->back()->with('error', 'Solo puedes editar citas pendientes');
+        if (!in_array($appointment->status, Appointment::activeStatuses(), true)) {
+            return redirect()->back()->with('error', 'Solo puedes editar citas activas.');
         }
 
         /** @var \App\Models\User $user */
@@ -131,20 +174,38 @@ class AppointmentController extends Controller
             abort(403, 'No autorizado');
         }
 
-        if ($appointment->status !== AppoinmentStatus::Pending->value) {
+        if (!in_array($appointment->status, Appointment::activeStatuses(), true)) {
             return redirect()
                 ->route('appointments.show', $appointment)
-                ->with('error', 'Solo puedes editar citas pendientes.');
+                ->with('error', 'Solo puedes editar citas activas.');
         }
 
         $validated = $request->validate([
             'appointment_date' => 'required|date|after:now',
             'type' => 'required|in:consultation,vaccination,surgery,grooming,other',
+            'service' => 'required|in:' . implode(',', Appointment::serviceValues()),
             'description' => 'nullable|string|max:500',
             'notes' => 'nullable|string|max:500',
         ]);
 
-        $appointment->update($validated);
+        if (Appointment::hasScheduleConflict((int) $appointment->pet_id, $validated['appointment_date'], (int) $appointment->id)) {
+            throw ValidationException::withMessages([
+                'appointment_date' => 'Esta mascota ya tiene un turno agendado en ese mismo horario. Elegí otro día u hora.',
+            ]);
+        }
+
+        $appointmentDate = Carbon::parse($validated['appointment_date'])->setSecond(0)->format('Y-m-d H:i:s');
+        if (!Appointment::hasCapacityForDateTime($appointmentDate, (int) $appointment->id)) {
+            throw ValidationException::withMessages([
+                'appointment_date' => 'Ese horario ya no está disponible. Elegí otro turno.',
+            ]);
+        }
+
+        $appointment->update([
+            ...$validated,
+            'appointment_date' => $appointmentDate,
+            'status' => AppoinmentStatus::Confirmed->value,
+        ]);
 
         return redirect()
             ->route('appointments.show', $appointment)

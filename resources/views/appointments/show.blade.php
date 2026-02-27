@@ -17,8 +17,12 @@
                 <p class="font-semibold">{{ $appointment->appointment_date->format('d/m/Y H:i') }}</p>
             </div>
             <div>
-                <p class="text-sm text-slate-500">Tipo</p>
-                <p class="font-semibold">{{ ucfirst($appointment->type) }}</p>
+                <p class="text-sm text-slate-500">Categoría</p>
+                <p class="font-semibold">{{ $appointment->typeLabel() }}</p>
+            </div>
+            <div>
+                <p class="text-sm text-slate-500">Servicio</p>
+                <p class="font-semibold">{{ $appointment->serviceLabel() }}</p>
             </div>
             <div>
                 <p class="text-sm text-slate-500">Descripción</p>

@@ -598,3 +598,458 @@ En `.env`:
 ---
 
 Documento preparado para estudio y defensa técnica del proyecto.
+
+---
+
+## 19) Profundización (estilo clase) con ejemplos del proyecto VetClinic
+
+Esta sección traduce conceptos típicos de Backend (migraciones, Eloquent, rutas, auth, middlewares, colas, email) a ejemplos concretos del proyecto.
+
+## 19.1 De requerimiento funcional a implementación técnica
+
+## Caso: “Como usuario quiero agendar una cita para mi mascota”
+
+## Capa de datos (migración)
+Se modela en `appointments` con `user_id`, `pet_id`, `appointment_date`, `type`, `status`.
+
+## Capa de dominio (modelo)
+- `Appointment` tiene relación con `User` y `Pet`.
+- Regla de negocio automática: cuando la fecha ya pasó, una cita pendiente/confirmada se marca como completada.
+
+## Capa HTTP (controlador)
+- Web: `AppointmentController@store`
+- API: `Api\AppointmentController@store`
+
+## Capa de seguridad
+- Validación de datos con `validate()`.
+- Validación de ownership: la mascota debe pertenecer al usuario autenticado.
+
+## Resultado
+- Se guarda la cita.
+- Se envía email de confirmación.
+- Se devuelve vista o JSON según canal.
+
+---
+
+## 19.2 Eloquent en práctica (consultas típicas de examen)
+
+## A) Relación y eager loading
+
+```php
+$appointments = $user->appointments()
+    ->with('pet')
+    ->orderBy('appointment_date')
+    ->get();
+```
+
+Qué demuestra:
+- Relación `hasMany`.
+- `with()` evita problema N+1.
+
+## B) Filtro por ownership (seguridad)
+
+```php
+if ($pet->user_id !== $request->user()->id) {
+    abort(403, 'Esta mascota no te pertenece');
+}
+```
+
+Qué demuestra:
+- Seguridad a nivel de negocio (no solo autenticación).
+
+## C) Actualización masiva con regla de negocio
+
+```php
+Appointment::query()
+    ->whereIn('status', ['pending', 'confirmed'])
+    ->where('appointment_date', '<=', now())
+    ->update(['status' => 'completed']);
+```
+
+Qué demuestra:
+- Regla centralizada en modelo.
+- Uso eficiente de query builder.
+
+---
+
+## 19.3 Middleware y guards: qué protege qué
+
+## Web
+- Middleware `auth` protege vistas (`/dashboard`, `/pets`, `/appointments`).
+- Guard de sesión (`web`) + tabla `sessions`.
+
+## API
+- Middleware `auth:sanctum` protege `/api/v1/*` privados.
+- Token Bearer emitido por login.
+
+## Admin
+- Middleware `role:admin` (Spatie) protege `/admin/*` y `/api/users`.
+
+Ejemplo mental de defensa:
+"Autenticado" no implica "autorizado". Primero se valida identidad (auth), luego permisos/rol/propiedad (authorization).
+
+---
+
+## 19.4 Ejemplo real de request/response (API)
+
+## Login
+
+Request:
+
+```http
+POST /api/login
+Content-Type: application/json
+
+{
+  "email": "user@email.com",
+  "password": "password"
+}
+```
+
+Response (200):
+
+```json
+{
+  "status": "success",
+  "message": "Authentication successful",
+  "data": {
+    "token": "1|...",
+    "user": {
+      "id": 5,
+      "name": "Usuario Demo",
+      "email": "user@email.com"
+    }
+  }
+}
+```
+
+## Crear cita
+
+```http
+POST /api/v1/appointments
+Authorization: Bearer 1|...
+Content-Type: application/json
+
+{
+  "pet_id": 10,
+  "appointment_date": "2026-03-01 10:30:00",
+  "type": "consultation",
+  "description": "Control general",
+  "notes": "Sin ayuno"
+}
+```
+
+Posibles respuestas:
+- `201` creada
+- `403` mascota no pertenece al usuario
+- `422` validación
+
+---
+
+## 19.5 Flujo completo "usuario + backend" (end-to-end)
+
+1. Usuario entra a `/register` o `/login`.
+2. Backend valida credenciales/datos.
+3. Se autentica usuario (session o token).
+4. Usuario crea mascota (`pets.store` o `/api/v1/pets`).
+5. Usuario agenda cita (`appointments.store` o `/api/v1/appointments`).
+6. Backend envía email de confirmación.
+7. Admin revisa solicitudes en `/admin/appointments`.
+8. Admin confirma/cancela (actualiza `status`).
+9. Usuario consulta dashboard y ve estado actualizado + recordatorios de vacunas.
+
+---
+
+## 19.6 Email de confirmación a Gmail (explicación detallada)
+
+## Paso 1: Config SMTP en `.env`
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=tu_correo@gmail.com
+MAIL_PASSWORD=tu_app_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=tu_correo@gmail.com
+MAIL_FROM_NAME="VetClinic"
+```
+
+Nota: Gmail exige **App Password** (2FA activo), no la contraseña normal de la cuenta.
+
+## Paso 2: Disparo desde controlador
+
+En creación de cita:
+
+```php
+Mail::to($appointment->user->email)
+    ->send(new AppointmentCreatedMail($appointment));
+```
+
+## Paso 3: Mailable personalizado
+
+`AppointmentCreatedMail` define:
+- asunto (envelope)
+- plantilla Blade (content)
+- datos para render (`$appointment`)
+
+## Paso 4: Template HTML
+
+`resources/views/emails/appointment-created.blade.php` usa datos dinámicos:
+- nombre del usuario
+- mascota
+- fecha/hora
+- tipo y estado
+- descripción opcional
+
+## Paso 5: Cola de correo (recomendado)
+
+Para no bloquear el request web:
+
+```bash
+php artisan queue:work --queue=default,emails
+```
+
+---
+
+## 19.7 Preguntas típicas de defensa y respuesta breve
+
+## “¿Dónde está la lógica de negocio?”
+- En controladores (validación de ownership), modelos (auto-complete de citas), y middleware (auth/roles).
+
+## “¿Por qué separar Web y API?”
+- Permite reutilizar dominio para clientes distintos (navegador, app móvil, integraciones) sin duplicar modelo de datos.
+
+## “¿Cómo garantizan seguridad?”
+- Auth (session/token), autorización (rol admin + ownership), validación de entrada, y respuestas de error estandarizadas para API.
+
+## “¿Cómo escalarías esto?”
+- Más policies por recurso, colas para procesos pesados, más tests de integración, versionado API (`v2`), observabilidad de errores.
+
+---
+
+## 20) Módulo de citas: implementación paso a paso (qué, dónde y por qué)
+
+Esta sección documenta **exactamente** los cambios recientes para pasar de “turnos con revisión manual” a “agenda con confirmación automática y cupos”.
+
+## 20.1 Objetivo funcional
+
+Se buscó que:
+- El usuario vea horarios disponibles y reserve directamente.
+- El turno quede **confirmado al crearse** (sin aprobación admin).
+- No exista doble reserva de la misma mascota en el mismo horario.
+- Se limite la agenda por franja y por día.
+- Admin conserve control operativo (cancelar/reactivar), pero no “aceptar pendientes”.
+
+---
+
+## 20.2 Paso 1 — Configuración central de agenda
+
+## Qué se creó
+- `config/appointments.php`
+
+## Qué define
+- `slot_minutes`: duración del turno (30 min)
+- `slot_limit`: cupo por franja horaria
+- `daily_limit`: cupo total diario
+- `workday_start` / `workday_end`: ventana horaria
+
+## Por qué
+Evita hardcodear reglas en controladores y permite ajustar negocio desde configuración.
+
+Ejemplo:
+
+```php
+return [
+    'slot_minutes' => 30,
+    'daily_limit' => 20,
+    'slot_limit' => 2,
+    'workday_start' => '09:00',
+    'workday_end' => '19:00',
+];
+```
+
+---
+
+## 20.3 Paso 2 — Reglas de disponibilidad en el modelo
+
+## Qué se modificó
+- `app/Models/Appointment.php`
+
+## Métodos agregados
+- `schedulingRules()`
+- `activeStatuses()`
+- `hasScheduleConflict()`
+- `hasCapacityForDateTime()`
+- `availableSlotsForDate()`
+
+## Por qué en el modelo
+Porque son reglas de dominio reutilizables por web, admin y API.
+
+## Resultado
+- Misma lógica en todos los canales.
+- Menos duplicación en controladores.
+
+---
+
+## 20.4 Paso 3 — Endpoints web para disponibilidad
+
+## Qué se agregó
+- Ruta: `GET /appointments/availability`
+  - Archivo: `routes/web.php`
+  - Método: `AppointmentController@availability`
+
+## Qué hace
+Recibe `date=YYYY-MM-DD` y devuelve JSON con:
+- cupo diario
+- ocupación diaria
+- lista de slots (hora, cupo, disponibilidad)
+
+## Por qué
+Permite construir UI de agenda dinámica sin exponer lógica en frontend.
+
+---
+
+## 20.5 Paso 4 — Confirmación automática del turno
+
+## Qué se modificó
+- `app/Http/Controllers/AppointmentController.php` (web)
+- `app/Http/Controllers/Api/AppointmentController.php` (API)
+
+## Cambios clave
+1. En `store`, el `status` pasa a `confirmed` al crear.
+2. Antes de crear, se valida:
+   - conflicto por mascota+fecha/hora
+   - cupo de franja y cupo diario
+3. Se normaliza `appointment_date` a segundos `00`.
+
+## Sintaxis importante
+
+```php
+if (!Appointment::hasCapacityForDateTime($appointmentDate)) {
+    throw ValidationException::withMessages([
+        'appointment_date' => 'Ese horario ya no está disponible. Elegí otro turno.',
+    ]);
+}
+```
+
+## Por qué
+- UX más simple (no esperar aceptación).
+- Menos carga operativa en admin.
+- Evita sobre-reserva por concurrencia.
+
+---
+
+## 20.6 Paso 5 — Calendario de slots en la vista web
+
+## Qué se modificó
+- `resources/views/appointments/create.blade.php`
+
+## Qué cambió en UI
+- Se reemplazó `datetime-local` libre por:
+  - input `date` (día)
+  - grilla de botones con horarios disponibles (slots)
+  - input hidden `appointment_date` para enviar el slot elegido
+
+## Técnica usada
+- `fetch()` al endpoint de disponibilidad.
+- Render dinámico de botones por horario.
+- Marcado visual del slot seleccionado.
+
+## Por qué
+Reducir errores de usuario y forzar selección solo de horarios válidos.
+
+---
+
+## 20.7 Paso 6 — Admin sin aprobación manual
+
+## Qué se modificó
+- `app/Http/Controllers/Admin/AppointmentController.php`
+- `resources/views/admin/appointments/create.blade.php`
+- `resources/views/admin/appointments/index.blade.php`
+- `app/Http/Controllers/UserDashboardController.php`
+- `resources/views/user/dashboard.blade.php`
+
+## Cambios funcionales
+- Ya no existe “aceptar pendiente” como flujo principal.
+- El alta admin queda confirmada por defecto.
+- Admin puede cancelar/reactivar cuando haga falta.
+- Dashboard admin ya no muestra “solicitudes pendientes de revisión”.
+
+## Por qué
+Modelo operativo de agenda directa, con administración por excepción.
+
+---
+
+## 20.8 Paso 7 — Integridad de datos y seeders
+
+## Qué se modificó
+- `database/migrations/2026_02_27_130000_add_unique_pet_datetime_to_appointments_table.php`
+- `database/seeders/AppointmentSeeder.php`
+
+## Cambios
+- Índice único `pet_id + appointment_date`.
+- Seeder con `updateOrCreate` para evitar duplicados al re-seedear.
+- Ajuste de estados seed para coherencia con auto-confirmación.
+
+## Por qué
+Blindaje de integridad incluso fuera de la UI.
+
+---
+
+## 20.9 Web vs API: qué se tocó en cada capa
+
+## Web
+- Ruta nueva de disponibilidad.
+- Controlador de citas con transiciones automáticas.
+- Vista de creación con selector de slots.
+
+## API
+- Validaciones de capacidad/solapamiento.
+- Estado confirmado al crear.
+- Mismo contrato de reglas del dominio.
+
+## Dominio común
+- Modelo `Appointment` concentra reglas y evita divergencia.
+
+---
+
+## 20.10 Comandos esenciales para reproducir todo
+
+## Inicialización
+
+```bash
+php artisan optimize:clear
+php artisan migrate:fresh --seed
+php artisan route:list | grep appointments
+```
+
+## Prueba rápida de disponibilidad (tinker)
+
+```bash
+php artisan tinker
+>>> App\Models\Appointment::availableSlotsForDate(now()->addDay())
+```
+
+## Verificación de duplicados (pet + datetime)
+
+```bash
+php artisan tinker --execute='echo App\Models\Appointment::query()->selectRaw("pet_id, appointment_date, count(*) as total")->groupBy("pet_id","appointment_date")->having("total",">",1)->count();'
+```
+
+Si devuelve `0`, no hay duplicados.
+
+---
+
+## 20.11 Orden sugerido para implementarlo desde cero (examen/práctica)
+
+1. Crear config de agenda.
+2. Agregar helpers en modelo (`Appointment`).
+3. Exponer endpoint de disponibilidad.
+4. Cambiar `store/update` web con validaciones de cupo.
+5. Cambiar `store/update` API con mismas reglas.
+6. Migrar UI de fecha/hora libre a selección por slots.
+7. Ajustar panel/admin y seeders.
+8. Ejecutar `migrate:fresh --seed` y validar.
+
+Ese orden minimiza regresiones y permite testear cada capa por separado.

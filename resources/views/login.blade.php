@@ -25,6 +25,11 @@
             <button type="submit" class="w-full rounded-lg bg-slate-900 text-white py-2.5 text-sm font-semibold hover:bg-slate-700">Entrar</button>
         </form>
 
+        <p class="mt-4 text-sm text-slate-600 text-center">
+            ¿No tienes cuenta?
+            <a href="{{ route('register') }}" class="font-semibold text-slate-900 hover:underline">Regístrate</a>
+        </p>
+
         <div class="mt-5 rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
             <p class="font-semibold mb-1">Credenciales de prueba</p>
             <p>Email: user@email.com</p>

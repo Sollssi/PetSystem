@@ -37,7 +37,7 @@ class VaccinationRecordSeeder extends Seeder
             'pet_id' => $firstPet->id,
             'vaccine_name' => 'Rabia',
             'application_date' => Carbon::now()->subMonths(11),
-            'next_due_date' => Carbon::now()->addMonths(1), // Próxima en 1 mes (debe renovarse pronto)
+            'next_due_date' => Carbon::now()->addDays(5), // Próxima dentro de 7 días (debe aparecer en dashboard)
             'veterinarian' => 'Dr. Carlos Méndez',
             'notes' => 'Vacuna antirrábica obligatoria. Sin reacciones adversas.',
         ]);

@@ -31,12 +31,21 @@ class UserDashboardController extends Controller
             $stats = [
                 'total_pets' => Pet::count(),
                 'appointments' => Appointment::count(),
-                'pending_appointments' => Appointment::query()->where('status', 'pending')->count(),
+                'confirmed_appointments' => Appointment::query()->where('status', 'confirmed')->count(),
             ];
 
-            $adminPendingAppointments = $stats['pending_appointments'];
+            $adminPendingAppointments = null;
         } else {
-            $appointments = $user->appointments()->with(['pet'])->latest()->take(5)->get();
+            $today = Carbon::today();
+            $nextSevenDays = Carbon::today()->addDays(7);
+
+            $appointments = $user->appointments()
+                ->with(['pet'])
+                ->whereIn('status', ['pending', 'confirmed'])
+                ->where('appointment_date', '>=', Carbon::now())
+                ->orderBy('appointment_date')
+                ->take(5)
+                ->get();
 
             $petsForCarnet = $user->pets()
                 ->withCount('vaccinationRecords')
@@ -48,7 +57,8 @@ class UserDashboardController extends Controller
                     $query->where('user_id', $user->id);
                 })
                 ->whereNotNull('next_due_date')
-                ->whereBetween('next_due_date', [Carbon::today(), Carbon::today()->addDays(7)])
+                ->whereDate('next_due_date', '>=', $today)
+                ->whereDate('next_due_date', '<=', $nextSevenDays)
                 ->with('pet')
                 ->orderBy('next_due_date')
                 ->get();
@@ -56,7 +66,7 @@ class UserDashboardController extends Controller
             $stats = [
                 'total_pets' => $user->pets()->count(),
                 'appointments' => $user->appointments()->count(),
-                'pending_appointments' => $user->appointments()->where('status', 'pending')->count(),
+                'confirmed_appointments' => $user->appointments()->where('status', 'confirmed')->count(),
             ];
 
             $adminPendingAppointments = null;

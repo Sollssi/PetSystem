@@ -28,8 +28,12 @@
                         <td style="padding:10px 12px;font-size:14px;color:#0f172a;">{{ $appointment->appointment_date->format('d/m/Y H:i') }}</td>
                     </tr>
                     <tr>
-                        <td style="padding:10px 12px;background:#f8fafc;font-size:13px;color:#64748b;">Tipo</td>
-                        <td style="padding:10px 12px;font-size:14px;color:#0f172a;">{{ ucfirst($appointment->type) }}</td>
+                        <td style="padding:10px 12px;background:#f8fafc;font-size:13px;color:#64748b;">Categoría</td>
+                        <td style="padding:10px 12px;font-size:14px;color:#0f172a;">{{ $appointment->typeLabel() }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:10px 12px;background:#f8fafc;font-size:13px;color:#64748b;">Servicio</td>
+                        <td style="padding:10px 12px;font-size:14px;color:#0f172a;">{{ $appointment->serviceLabel() }}</td>
                     </tr>
                     <tr>
                         <td style="padding:10px 12px;background:#f8fafc;font-size:13px;color:#64748b;">Estado</td>

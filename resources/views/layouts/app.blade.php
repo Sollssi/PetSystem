@@ -26,6 +26,19 @@
     </header>
 
     <main class="max-w-6xl mx-auto px-4 py-8">
+        @unless(request()->routeIs('user.dashboard'))
+            <div class="mb-4">
+                <button
+                    type="button"
+                    onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href='{{ route('user.dashboard') }}'; }"
+                    class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                    <span aria-hidden="true">←</span>
+                    Volver atrás
+                </button>
+            </div>
+        @endunless
+
         @if (session('status') || session('success'))
             <div class="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                 {{ session('status') ?? session('success') }}

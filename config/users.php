@@ -12,8 +12,8 @@ return [
     */
 
     'admin' => [
-        'first_name' => env('ADMIN_FIRST_NAME', 'Admin'),
-        'last_name' => env('ADMIN_LAST_NAME', 'User'),
+        'first_name' => env('ADMIN_FIRST_NAME', 'Sol'),
+        'last_name' => env('ADMIN_LAST_NAME', ''),
         'email' => env('ADMIN_EMAIL', 'admin@example.com'),
         'password' => env('ADMIN_PASSWORD', 'password'),
     ],

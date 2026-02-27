@@ -8,10 +8,12 @@ use App\Mail\AppointmentCreatedMail;
 use App\Models\Appointment;
 use App\Models\Pet;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
 {
@@ -45,10 +47,10 @@ class AppointmentController extends Controller
             'age' => 'required|integer|min:0|max:60',
             'appointment_date' => 'required|date',
             'type' => 'required|in:consultation,vaccination,surgery,grooming,other',
+            'service' => 'required|in:' . implode(',', Appointment::serviceValues()),
             'description' => 'nullable|string|max:500',
             'notes' => 'nullable|string|max:500',
-            'status' => 'required|in:' . implode(',', [
-                AppoinmentStatus::Pending->value,
+            'status' => 'nullable|in:' . implode(',', [
                 AppoinmentStatus::Confirmed->value,
                 AppoinmentStatus::Cancelled->value,
             ]),
@@ -76,13 +78,23 @@ class AppointmentController extends Controller
             'status' => 'active',
         ]);
 
+        $appointmentDate = Carbon::parse($validated['appointment_date'])->setSecond(0)->format('Y-m-d H:i:s');
+        if (!Appointment::hasCapacityForDateTime($appointmentDate)) {
+            $pet->delete();
+
+            throw ValidationException::withMessages([
+                'appointment_date' => 'Ese horario ya no está disponible. Elegí otro turno.',
+            ]);
+        }
+
         $appointment = Appointment::create([
             'user_id' => $user->id,
             'pet_id' => $pet->id,
-            'appointment_date' => $validated['appointment_date'],
+            'appointment_date' => $appointmentDate,
             'type' => $validated['type'],
+            'service' => $validated['service'],
             'description' => $validated['description'] ?? null,
-            'status' => $validated['status'],
+            'status' => $validated['status'] ?? AppoinmentStatus::Confirmed->value,
             'notes' => $validated['notes'] ?? null,
         ]);
 
@@ -101,7 +113,6 @@ class AppointmentController extends Controller
 
         $validated = $request->validate([
             'status' => 'required|in:' . implode(',', [
-                AppoinmentStatus::Pending->value,
                 AppoinmentStatus::Confirmed->value,
                 AppoinmentStatus::Cancelled->value,
             ]),

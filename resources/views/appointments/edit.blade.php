@@ -7,13 +7,21 @@
             @csrf
             @method('PUT')
             <div>
-                <label class="block text-sm text-slate-600 mb-1" for="type">Tipo</label>
+                <label class="block text-sm text-slate-600 mb-1" for="type">Categoría</label>
                 <select name="type" id="type" class="w-full rounded-lg border border-slate-300 px-3 py-2" required>
                     <option value="consultation" @selected(old('type', $appointment->type) === 'consultation')>Consulta</option>
                     <option value="vaccination" @selected(old('type', $appointment->type) === 'vaccination')>Vacunación</option>
                     <option value="surgery" @selected(old('type', $appointment->type) === 'surgery')>Cirugía</option>
-                    <option value="grooming" @selected(old('type', $appointment->type) === 'grooming')>Estética</option>
+                    <option value="grooming" @selected(old('type', $appointment->type) === 'grooming')>Peluquería</option>
                     <option value="other" @selected(old('type', $appointment->type) === 'other')>Otro</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm text-slate-600 mb-1" for="service">Servicio</label>
+                <select name="service" id="service" class="w-full rounded-lg border border-slate-300 px-3 py-2" required>
+                    @foreach(\App\Models\Appointment::serviceOptions() as $value => $label)
+                        <option value="{{ $value }}" @selected(old('service', $appointment->service) === $value)>{{ $label }}</option>
+                    @endforeach
                 </select>
             </div>
             <div>

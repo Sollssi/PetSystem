@@ -38,20 +38,27 @@
 
             <div class="grid md:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-sm text-slate-600 mb-1" for="type">Tipo</label>
+                    <label class="block text-sm text-slate-600 mb-1" for="type">Categoría</label>
                     <select name="type" id="type" class="w-full rounded-lg border border-slate-300 px-3 py-2" required>
                         <option value="consultation" @selected(old('type') === 'consultation')>Consulta</option>
                         <option value="vaccination" @selected(old('type') === 'vaccination')>Vacunación</option>
                         <option value="surgery" @selected(old('type') === 'surgery')>Cirugía</option>
-                        <option value="grooming" @selected(old('type') === 'grooming')>Estética</option>
+                        <option value="grooming" @selected(old('type') === 'grooming')>Peluquería</option>
                         <option value="other" @selected(old('type') === 'other')>Otro</option>
                     </select>
                 </div>
                 <div>
+                    <label class="block text-sm text-slate-600 mb-1" for="service">Servicio</label>
+                    <select name="service" id="service" class="w-full rounded-lg border border-slate-300 px-3 py-2" required>
+                        @foreach(\App\Models\Appointment::serviceOptions() as $value => $label)
+                            <option value="{{ $value }}" @selected(old('service', 'general_consultation') === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
                     <label class="block text-sm text-slate-600 mb-1" for="status">Estado inicial</label>
-                    <select name="status" id="status" class="w-full rounded-lg border border-slate-300 px-3 py-2" required>
-                        <option value="pending" @selected(old('status') === 'pending')>Pendiente</option>
-                        <option value="confirmed" @selected(old('status') === 'confirmed')>Confirmado</option>
+                    <select name="status" id="status" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+                        <option value="confirmed" @selected(old('status', 'confirmed') === 'confirmed')>Confirmado</option>
                         <option value="cancelled" @selected(old('status') === 'cancelled')>Cancelado</option>
                     </select>
                 </div>

@@ -32,35 +32,38 @@ class AppointmentSeeder extends Seeder
         $this->command->info('Creando citas de ejemplo...');
 
         // Cita 1: Consulta general pendiente (futura)
-        Appointment::create([
+        $this->upsertAppointment([
             'user_id' => $user->id,
             'pet_id' => $pets->first()->id,
             'appointment_date' => Carbon::now()->addDays(3)->setTime(10, 0),
             'type' => 'consultation',
-            'status' => 'pending',
+            'service' => 'general_consultation',
+            'status' => 'confirmed',
             'description' => 'Revisión general de rutina. Últimamente ha estado un poco decaído.',
             'notes' => 'Traer cartilla de vacunación',
         ]);
 
         // Cita 2: Vacunación pendiente (futura)
         if ($pets->count() > 1) {
-            Appointment::create([
+            $this->upsertAppointment([
                 'user_id' => $user->id,
                 'pet_id' => $pets->get(1)->id,
                 'appointment_date' => Carbon::now()->addDays(5)->setTime(14, 30),
                 'type' => 'vaccination',
-                'status' => 'pending',
+                'service' => 'laboratory',
+                'status' => 'confirmed',
                 'description' => 'Refuerzo de vacuna antirrábica anual',
                 'notes' => null,
             ]);
         }
 
         // Cita 3: Consulta confirmada (futura)
-        Appointment::create([
+        $this->upsertAppointment([
             'user_id' => $user->id,
             'pet_id' => $pets->first()->id,
             'appointment_date' => Carbon::now()->addDays(7)->setTime(16, 0),
             'type' => 'consultation',
+            'service' => 'cardiology_studies',
             'status' => 'confirmed',
             'description' => 'Control post-operatorio. Revisión de suturas.',
             'notes' => 'Cita confirmada por teléfono',
@@ -68,11 +71,12 @@ class AppointmentSeeder extends Seeder
 
         // Cita 4: Cirugía completada (pasada)
         if ($pets->count() > 1) {
-            Appointment::create([
+            $this->upsertAppointment([
                 'user_id' => $user->id,
                 'pet_id' => $pets->get(1)->id,
                 'appointment_date' => Carbon::now()->subDays(15)->setTime(9, 0),
                 'type' => 'surgery',
+                'service' => 'traumatology',
                 'status' => 'completed',
                 'description' => 'Esterilización programada',
                 'notes' => 'Operación exitosa. Reposo de 10 días.',
@@ -80,11 +84,12 @@ class AppointmentSeeder extends Seeder
         }
 
         // Cita 5: Estética completada (pasada)
-        Appointment::create([
+        $this->upsertAppointment([
             'user_id' => $user->id,
             'pet_id' => $pets->first()->id,
             'appointment_date' => Carbon::now()->subDays(7)->setTime(11, 0),
             'type' => 'grooming',
+            'service' => 'pharmacy_products',
             'status' => 'completed',
             'description' => 'Corte de pelo y baño completo',
             'notes' => 'Se realizó limpieza de oídos y corte de uñas',
@@ -92,11 +97,12 @@ class AppointmentSeeder extends Seeder
 
         // Cita 6: Consulta cancelada
         if ($pets->count() > 2) {
-            Appointment::create([
+            $this->upsertAppointment([
                 'user_id' => $user->id,
                 'pet_id' => $pets->get(2)->id,
                 'appointment_date' => Carbon::now()->subDays(2)->setTime(15, 0),
                 'type' => 'consultation',
+                'service' => 'dermatology',
                 'status' => 'cancelled',
                 'description' => 'Revisión por pérdida de apetito',
                 'notes' => 'Cancelada por el cliente - mascota mejoró',
@@ -104,11 +110,12 @@ class AppointmentSeeder extends Seeder
         }
 
         // Cita 7: Vacunación completada
-        Appointment::create([
+        $this->upsertAppointment([
             'user_id' => $user->id,
             'pet_id' => $pets->first()->id,
             'appointment_date' => Carbon::now()->subDays(30)->setTime(10, 30),
             'type' => 'vaccination',
+            'service' => 'imaging_diagnosis',
             'status' => 'completed',
             'description' => 'Vacuna polivalente (séxtuple)',
             'notes' => 'Próxima dosis en 1 año',
@@ -116,17 +123,29 @@ class AppointmentSeeder extends Seeder
 
         // Cita 8: Consulta pendiente (mañana)
         if ($pets->count() > 1) {
-            Appointment::create([
+            $this->upsertAppointment([
                 'user_id' => $user->id,
                 'pet_id' => $pets->get(1)->id,
                 'appointment_date' => Carbon::tomorrow()->setTime(12, 0),
                 'type' => 'consultation',
-                'status' => 'pending',
+                'service' => 'ecography',
+                'status' => 'confirmed',
                 'description' => 'Consulta de emergencia - no come hace 2 días',
                 'notes' => 'URGENTE',
             ]);
         }
 
         $this->command->info('✅ Citas creadas exitosamente');
+    }
+
+    private function upsertAppointment(array $data): void
+    {
+        Appointment::updateOrCreate(
+            [
+                'pet_id' => $data['pet_id'],
+                'appointment_date' => $data['appointment_date'],
+            ],
+            $data
+        );
     }
 }
