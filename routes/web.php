@@ -1,105 +1,55 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\UIDemoController;
-use App\Http\Controllers\UIEventController;
-use App\Http\Controllers\LogViewerController;
-use App\Http\Controllers\DocumentationController;
-use App\Http\Controllers\UploadController;
+use App\Http\Controllers\PetController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\UserDashboardController;
+use App\Http\Controllers\LoginController;
+use App\Http\Controllers\RegisterController;
+use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\VaccinationController;
+use App\Http\Controllers\Admin\AppointmentController as AdminAppointmentController;
 
-// Servir archivos del storage mediante endpoint personalizado
-Route::get('/files/{path}', [UploadController::class, 'serveFile'])->where('path', '.*')->name('files.serve');
+// Rutas públicas
+Route::get('/', [DashboardController::class, 'index'])->name('home');
+Route::view('/endpoints', 'endpoints.index')->name('endpoints.index');
 
-// Log viewer routes (MUST be before dynamic demo route)
-Route::prefix('logs')->group(function () {
-    Route::get('/', [LogViewerController::class, 'index'])->name('logs.index');
-    Route::get('/content', [LogViewerController::class, 'content'])->name('logs.content');
-    Route::get('/download', [LogViewerController::class, 'download'])->name('logs.download');
-    Route::post('/clear', [LogViewerController::class, 'clear'])->name('logs.clear');
+Route::middleware(['guest'])->group(function () {
+    Route::get('/login', [UserDashboardController::class, 'login'])->name('login');
+    Route::post('/login', [LoginController::class, 'authenticate'])->name('authenticate');
+    Route::get('/register', [RegisterController::class, 'create'])->name('register');
+    Route::post('/register', [RegisterController::class, 'store'])->name('register.store');
 });
 
-// Demo route - Default landing demo
-Route::get('/', function () {
-    $reset = request()->query('reset', false);
-    return view('demo', [
-        'demo' => 'landing-demo',
-        'reset' => $reset
-    ]);
+Route::get('/logout', [LoginController::class, 'logout'])->name('logout');
+
+// Rutas autenticadas (clientes)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [UserDashboardController::class, 'index'])->name('user.dashboard');
+
+    // Citas
+    Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments.index');
+    Route::get('/appointments/create', [AppointmentController::class, 'create'])->name('appointments.create');
+    Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
+    Route::get('/appointments/{appointment}', [AppointmentController::class, 'show'])->name('appointments.show');
+    Route::get('/appointments/{appointment}/edit', [AppointmentController::class, 'edit'])->name('appointments.edit');
+    Route::put('/appointments/{appointment}', [AppointmentController::class, 'update'])->name('appointments.update');
+    Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel'])->name('appointments.cancel');
+
+    // Vacunación
+    Route::get('/pets/{pet}/vaccinations', [VaccinationController::class, 'index'])->name('vaccinations.index');
+    Route::get('/pets/{pet}/vaccinations/create', [VaccinationController::class, 'create'])->name('vaccinations.create');
+    Route::post('/pets/{pet}/vaccinations', [VaccinationController::class, 'store'])->name('vaccinations.store');
+    Route::delete('/pets/{pet}/vaccinations/{record}', [VaccinationController::class, 'delete'])->name('vaccinations.delete');
+    Route::get('/pets/{pet}/vaccinations/{record}/certificate', [VaccinationController::class, 'downloadCertificate'])->name('vaccinations.certificate');
+
+    // Mascotas
+    Route::resource('pets', PetController::class);
 });
 
-Route::get('/login', function () {
-    $reset = request()->query('reset', false);
-    return view('demo', [
-        'demo' => 'login',
-        'reset' => $reset
-    ]);
-})->name('login');
-
-Route::get('/email/verify/{id}/{hash}', function () {
-    $reset = request()->query('reset', false);
-    return view('demo', [
-        'demo' => 'email-verified',
-        'reset' => $reset
-    ]);
-})->middleware('signed')->name('verification.notice');
-
-Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
-
-    Route::get('/admin/dashboard', function () {
-        $reset = request()->query('reset', false);
-        return view('demo', [
-            'demo' => 'admin-dashboard',
-            'reset' => $reset
-        ]);
-    })->name('admin.dashboard');
-
-});
-
-// Profile route - Usuario autenticado
-Route::middleware(['auth:sanctum'])->group(function () {
-    Route::get('/profile', function () {
-        $reset = request()->query('reset', false);
-        return view('demo', [
-            'demo' => 'profile',
-            'reset' => $reset
-        ]);
-    })->name('profile');
-});
-
-// Demo route - Dynamic demo viewer
-Route::get('/demo/{demo}', function (string $demo) {
-    $reset = request()->query('reset', false);
-    return view('demo', [
-        'demo' => $demo,
-        'reset' => $reset
-    ]);
-})->name('demo');
-
-// Demo UI API routes - Unified controller for all demo services
-Route::get('/api/{demo}', [UIDemoController::class, 'show'])->name('api.demo');
-
-// UI Event Handler
-Route::post('/api/ui-event', [UIEventController::class, 'handleEvent'])->name('ui.event');
-
-// Upload temporal routes (para demos)
-Route::post('/api/upload/temporary', [UploadController::class, 'uploadTemporary'])->name('upload.temporary');
-Route::delete('/api/upload/temporary/{id}', [UploadController::class, 'deleteTemporary'])->name('upload.temporary.delete');
-
-// Rutas para documentación
-Route::prefix('docs')->group(function () {
-    // Índice principal de documentación
-    Route::get('/', [DocumentationController::class, 'docsIndex'])->name('docs.index');
-
-    // Documentación principal (3 archivos)
-    Route::get('/api-complete', [DocumentationController::class, 'apiCompleteDocs'])->name('docs.api-complete');
-    Route::get('/implementation-summary', [DocumentationController::class, 'implementationSummaryDocs'])->name('docs.implementation-summary');
-    Route::get('/technical-components', [DocumentationController::class, 'technicalComponentsDocs'])->name('docs.technical-components');
-
-    // Documentación especializada (2 archivos)
-    Route::get('/email-customization', [DocumentationController::class, 'emailCustomizationDocs'])->name('docs.email-customization');
-    Route::get('/file-upload-examples', [DocumentationController::class, 'fileUploadExamplesDocs'])->name('docs.file-upload-examples');
-
-    // Rutas de compatibilidad con enlaces antiguos (redirects)
-    Route::get('/api-client', fn() => redirect()->route('docs.api-complete'))->name('docs.api-client.redirect');
-    Route::get('/css-structure', fn() => redirect()->route('docs.technical-components'))->name('docs.css-structure.redirect');
+Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/appointments', [AdminAppointmentController::class, 'index'])->name('appointments.index');
+    Route::get('/appointments/create', [AdminAppointmentController::class, 'create'])->name('appointments.create');
+    Route::post('/appointments', [AdminAppointmentController::class, 'store'])->name('appointments.store');
+    Route::patch('/appointments/{appointment}/status', [AdminAppointmentController::class, 'updateStatus'])->name('appointments.status');
 });

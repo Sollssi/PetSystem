@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,18 +13,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(
+            at: '*',
+            headers: Request::HEADER_X_FORWARDED_FOR
+                | Request::HEADER_X_FORWARDED_HOST
+                | Request::HEADER_X_FORWARDED_PORT
+                | Request::HEADER_X_FORWARDED_PROTO
+        );
+
         // Use custom EncryptCookies to exclude ui_client_id from encryption
         $middleware->encryptCookies(except: [
             'ui_client_id',
         ]);
 
-        $middleware->web(prepend: [
-            \App\Http\Middleware\PrepareUIContext::class,
-        ]);
-
-        $middleware->api(prepend: [
-            \App\Http\Middleware\PrepareUIContext::class,
-        ]);
+        // UI Context middleware removed with demo feature cleanup
 
         // Registrar alias de middleware de Spatie Permission
         $middleware->alias([
@@ -34,7 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Forzar respuestas JSON para rutas API
-        $exceptions->shouldRenderJsonWhen(function ($request, Throwable $e) {
+        $exceptions->shouldRenderJsonWhen(function ($request, \Throwable $e) {
             return $request->is('api/*') || $request->expectsJson();
         });
 

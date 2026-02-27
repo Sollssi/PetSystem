@@ -9,8 +9,11 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Contracts\Auth\CanResetPassword;
 use App\Notifications\ResetPasswordNotification;
 use App\Notifications\CustomVerifyEmailNotification;
+use App\Models\Pet;
+use App\Models\Appointment;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable implements MustVerifyEmail, CanResetPassword
 {
@@ -38,6 +41,16 @@ class User extends Authenticatable implements MustVerifyEmail, CanResetPassword
     public function displayInfo(): string
     {
         return "User: {$this->name}, Email: {$this->email}";
+    }
+
+    public function pets(): HasMany
+    {
+        return $this->hasMany(Pet::class);
+    }
+
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class);
     }
 
     /**

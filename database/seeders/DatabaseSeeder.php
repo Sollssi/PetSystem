@@ -11,6 +11,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RoleSeeder::class,
             UserSeeder::class,
+            PetSeeder::class,              // Crear mascotas primero
+            AppointmentSeeder::class,       // Luego citas
+            VaccinationRecordSeeder::class, // Registros de vacunación
         ]);
     }
 }
